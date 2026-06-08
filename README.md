@@ -52,7 +52,7 @@ Spatial-Aware-Fusion-LoRA/
 
 ## Method
 
-### SALF – Spatial-Aware LoRA Fusion (Section 2.2)
+### SALF – Spatial-Aware LoRA Fusion
 
 Standard LoRA applies a single global ΔW to all image tokens simultaneously, causing identity features to interfere across subject boundaries.
 
@@ -70,7 +70,7 @@ where:
 
 The dynamic mask weight function $\Phi(M)$ applies Gaussian boundary smoothing at mask edges to ensure natural transitions, and enforces strict non-zero constraints so each token is governed exclusively by its owning branch.
 
-### RCAM – Regional Cross-Attention Masking (Section 2.3)
+### RCAM – Regional Cross-Attention Masking
 
 RCAM injects a spatial bias matrix $M \in \mathbb{R}^{L \times S}$ into the attention score computation:
 
@@ -82,7 +82,7 @@ $$M_{i,j} = \begin{cases} 0 & \text{if pixel } i \text{ is in subject-}n\text{'s
 
 This mathematically blocks cross-regional text–image attention, eliminating semantic attribute leakage at the feature level.
 
-### Synergistic inference (Section 2.4)
+### Synergistic inference 
 
 Both modules operate simultaneously:
 - **SALF** ensures each image region uses the correct identity parameters
