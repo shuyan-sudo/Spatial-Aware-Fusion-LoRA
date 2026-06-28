@@ -29,6 +29,35 @@ This work proposes two tightly coupled modules:
 
 ---
 
+## Dataset Information
+
+This work is evaluated on the **DreamBooth dataset** (Ruiz et al., 2023), a standard multi-subject personalization benchmark.
+
+- **Source**: publicly available at [google/dreambooth](https://github.com/google/dreambooth)
+- **Content**: 30 subjects (pets, toys, backpacks, etc.), each with 4–6 reference images
+- **Usage in this project**: reference images are used to train one per-subject LoRA (see [Training](#training-per-subject-lora)); a fixed set of test prompts (`configs/test_prompts.txt`) is used to generate multi-subject compositions for evaluation
+- **Format expected by this code**: a folder per subject containing the reference JPG/PNG images, referenced via `--reference_dir` in `eval/compute_metrics.py`
+- No modified or redistributed copy of the dataset is included in this repository; users should download it directly from the source above and place it under `datasets/dreambooth/` (or point `--reference_dir` to its location).
+
+---
+
+## Code Information
+
+| File | Description |
+|------|-------------|
+| `networks/lora_salf.py` | SALF module: spatial-gated, per-subject LoRA fusion (Section 2.2 of the paper) |
+| `library/rcam_attention.py` | RCAM module: regional cross-attention masking (Section 2.3) |
+| `inference/multi_subject_infer.py` | End-to-end multi-subject inference script (CLI) |
+| `eval/compute_metrics.py` | Computes DINO / CLIP-I / CLIP-T metrics used for evaluation and ablation tables |
+| `app.py` | Gradio-based training WebUI (FluxGym-derived) for per-subject LoRA training |
+| `app-launch.sh` | Shell entry point that activates the environment and launches `app.py` |
+| `models.yaml` | Configuration file mapping local paths for FLUX.1-dev, CLIP, T5 and VAE weights |
+| `sd-scripts/` | Training backend (kohya-ss), included as a git submodule |
+
+All code is written in Python 3.10+ (PyTorch) except the WebUI launcher (`app-launch.sh`, bash) and `install.js` (Node.js, used only by the Pinokio one-click installer). All code files and comments are in English.
+
+---
+
 ## Repository Structure
 
 ```
@@ -52,7 +81,7 @@ Spatial-Aware-Fusion-LoRA/
 
 ## Method
 
-### SALF – Spatial-Aware LoRA Fusion (Section 2.2)
+### SALF – Spatial-Aware LoRA Fusion
 
 Standard LoRA applies a single global ΔW to all image tokens simultaneously, causing identity features to interfere across subject boundaries.
 
@@ -70,7 +99,7 @@ where:
 
 The dynamic mask weight function $\Phi(M)$ applies Gaussian boundary smoothing at mask edges to ensure natural transitions, and enforces strict non-zero constraints so each token is governed exclusively by its owning branch.
 
-### RCAM – Regional Cross-Attention Masking (Section 2.3)
+### RCAM – Regional Cross-Attention Masking
 
 RCAM injects a spatial bias matrix $M \in \mathbb{R}^{L \times S}$ into the attention score computation:
 
@@ -82,7 +111,7 @@ $$M_{i,j} = \begin{cases} 0 & \text{if pixel } i \text{ is in subject-}n\text{'s
 
 This mathematically blocks cross-regional text–image attention, eliminating semantic attribute leakage at the feature level.
 
-### Synergistic inference (Section 2.4)
+### Synergistic inference 
 
 Both modules operate simultaneously:
 - **SALF** ensures each image region uses the correct identity parameters
@@ -322,6 +351,8 @@ This project builds on:
 
 ---
 
-## License
+## License & Contribution Guidelines
 
 This project is released under the MIT License. See [LICENSE](LICENSE) for details.
+
+Contributions are welcome via pull request. Please open an issue first to discuss significant changes, keep code comments/documentation in English, and follow the existing code style.

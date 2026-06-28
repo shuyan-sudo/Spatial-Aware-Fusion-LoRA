@@ -3,5 +3,5 @@
 source /etc/network_turbo
 cd "`dirname "$0"`" || exit 1
 . env/bin/activate
-export MPLBACKEND=agg  # 设置 MPLBACKEND 环境变量为合适的后端
+export MPLBACKEND=agg  # Set the MPLBACKEND environment variable to a suitable backend
 python app.py

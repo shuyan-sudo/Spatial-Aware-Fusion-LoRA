@@ -157,7 +157,7 @@ def login_hf(hf_token):
 def upload_hf(base_model, lora_rows, repo_owner, repo_name, repo_visibility, hf_token):
     src = lora_rows
     repo_id = f"{repo_owner}/{repo_name}"
-    gr.Info(f"正在上传到Huggingface，请稍候...", duration=None)
+    gr.Info(f"Uploading to Huggingface, please wait...", duration=None)
     args = Namespace(
         huggingface_repo_id=repo_id,
         huggingface_repo_type="model",
@@ -168,7 +168,7 @@ def upload_hf(base_model, lora_rows, repo_owner, repo_name, repo_visibility, hf_
     )
     print(f"upload_hf args={args}")
     huggingface_util.upload(args=args, src=src)
-    gr.Info(f"[上传完成] https://huggingface.co/{repo_id}", duration=None)
+    gr.Info(f"[Upload complete] https://huggingface.co/{repo_id}", duration=None)
 
 def load_captioning(uploaded_files, concept_sentence):
     uploaded_images = [file for file in uploaded_files if not file.endswith('.txt')]
@@ -276,11 +276,11 @@ def run_captioning(images, concept_sentence, *captions):
     print(f"device={device}")
     torch_dtype = torch.float16
     
-    # 检查模型文件是否存在
+    # Check whether the model file exists
     if not os.path.exists("/root/autodl-tmp/models/Florence2"):
-        raise FileNotFoundError("模型 Florence2 不存在，请确保它在本地正确路径下。")
+        raise FileNotFoundError("Model Florence2 not found. Please make sure it is in the correct local path.")
     
-    # 加载模型和处理器
+    # Load the model and processor
     model = AutoModelForCausalLM.from_pretrained(
         "/root/autodl-tmp/models/Florence2", torch_dtype=torch_dtype, trust_remote_code=True
     ).to(device)
@@ -315,7 +315,7 @@ def run_captioning(images, concept_sentence, *captions):
 
         yield captions
     
-    # 释放模型和处理器
+    # Release the model and processor
     model.to("cpu")
     del model
     del processor
@@ -575,13 +575,13 @@ def get_samples(lora_name):
         return []
 
 def get_datasets():
-    """获取所有历史数据集"""
+    """Get all historical datasets"""
     try:
         datasets_path = resolve_path_without_quotes("datasets")
         if not os.path.exists(datasets_path):
             return []
         
-        # 需要过滤的文件夹列表
+        # List of folders to filter out
         excluded_folders = {
             '.ipynb_checkpoints',
             '__pycache__',
@@ -596,9 +596,9 @@ def get_datasets():
         folders = []
         for item in os.listdir(datasets_path):
             item_path = os.path.join(datasets_path, item)
-            # 检查是否为目录且不在排除列表中
+            # Check whether it is a directory and not in the exclusion list
             if os.path.isdir(item_path) and item not in excluded_folders:
-                # 额外检查：确保文件夹中至少包含一些图片文件
+                # Extra check: ensure the folder contains at least some image files
                 has_images = False
                 try:
                     for file in os.listdir(item_path):
@@ -618,7 +618,7 @@ def get_datasets():
         return []
 
 def get_dataset_info(dataset_name):
-    """获取数据集信息（图片数量等）"""
+    """Get dataset information (image count, etc.)"""
     try:
         dataset_path = resolve_path_without_quotes(f"datasets/{dataset_name}")
         if not os.path.exists(dataset_path):
@@ -639,24 +639,24 @@ def get_dataset_info(dataset_name):
         return {"image_count": 0, "files": []}
 
 def load_historical_dataset(dataset_name):
-    """加载历史数据集到训练界面"""
+    """Load a historical dataset into the training interface"""
     try:
         dataset_info = get_dataset_info(dataset_name)
         if dataset_info["image_count"] == 0:
-            raise gr.Error(f"数据集 {dataset_name} 中没有找到图片")
+            raise gr.Error(f"No images found in dataset {dataset_name}")
         
         dataset_path = dataset_info["dataset_path"]
         image_files = dataset_info["files"]
         
-        # 构建完整的文件路径列表
+        # Build the list of full file paths
         full_image_paths = []
         captions = []
         
-        for image_file in image_files[:MAX_IMAGES]:  # 限制最大图片数量
+        for image_file in image_files[:MAX_IMAGES]:  # Limit the maximum number of images
             full_path = os.path.join(dataset_path, image_file)
             full_image_paths.append(full_path)
             
-            # 查找对应的标注文件
+            # Find the corresponding caption file
             base_name = os.path.splitext(image_file)[0]
             txt_file = os.path.join(dataset_path, f"{base_name}.txt")
             
@@ -665,48 +665,48 @@ def load_historical_dataset(dataset_name):
                     caption = f.read().strip()
                     captions.append(caption)
             else:
-                captions.append("")  # 如果没有标注文件，使用空字符串
+                captions.append("")  # Use an empty string if there is no caption file
         
-        # 构建更新组件的列表
+        # Build the list of component updates
         updates = []
         
-        # 显示captioning区域
+        # Show the captioning area
         updates.append(gr.update(visible=True))  # captioning_area
         
-        # 更新每个captioning行和图片
+        # Update each captioning row and image
         for i in range(1, MAX_IMAGES + 1):
             visible = i <= len(full_image_paths)
             
-            # 更新captioning行的可见性
+            # Update the visibility of the captioning row
             updates.append(gr.update(visible=visible))
             
-            # 更新图片组件
+            # Update the image component
             image_value = full_image_paths[i - 1] if visible else None
             updates.append(gr.update(value=image_value, visible=visible))
             
-            # 更新标注文本
+            # Update the caption text
             caption_value = captions[i - 1] if visible and i <= len(captions) else ""
             updates.append(gr.update(value=caption_value, visible=visible))
         
-        # 显示开始训练按钮
+        # Show the start-training button
         updates.append(gr.update(visible=True))  # start button
         
-        gr.Info(f"已加载数据集: {dataset_name} (包含 {len(full_image_paths)} 张图片)")
+        gr.Info(f"Loaded dataset: {dataset_name} ({len(full_image_paths)} images)")
         
         return [full_image_paths] + updates
         
     except Exception as e:
         print(f"Error loading historical dataset {dataset_name}: {e}")
-        raise gr.Error(f"加载数据集失败: {str(e)}")
+        raise gr.Error(f"Failed to load dataset: {str(e)}")
 
 def refresh_datasets_list():
-    """刷新数据集列表"""
+    """Refresh the dataset list"""
     datasets = get_datasets()
     choices = []
     
     for dataset in datasets:
         info = get_dataset_info(dataset)
-        label = f"{dataset} ({info['image_count']} 张图片)"
+        label = f"{dataset} ({info['image_count']} images)"
         choices.append((label, dataset))
     
     return gr.update(choices=choices)
@@ -738,18 +738,18 @@ def start_training(
     sh_filepath = resolve_path_without_quotes(f"outputs/{output_name}/{sh_filename}")
     with open(sh_filepath, 'w', encoding="utf-8") as file:
         file.write(train_script)
-    gr.Info(f"已生成训练脚本：{sh_filename}")
+    gr.Info(f"Training script generated: {sh_filename}")
 
 
     dataset_path = resolve_path_without_quotes(f"outputs/{output_name}/dataset.toml")
     with open(dataset_path, 'w', encoding="utf-8") as file:
         file.write(train_config)
-    gr.Info(f"已生成数据集配置文件：dataset.toml")
+    gr.Info(f"Dataset config file generated: dataset.toml")
 
     sample_prompts_path = resolve_path_without_quotes(f"outputs/{output_name}/sample_prompts.txt")
     with open(sample_prompts_path, 'w', encoding='utf-8') as file:
         file.write(sample_prompts)
-    gr.Info(f"已生成样本提示文件：sample_prompts.txt")
+    gr.Info(f"Sample prompts file generated: sample_prompts.txt")
 
     # Train
     if sys.platform == "win32":
@@ -763,7 +763,7 @@ def start_training(
     env['LOG_LEVEL'] = 'DEBUG'
     runner = LogsViewRunner()
     cwd = os.path.dirname(os.path.abspath(__file__))
-    gr.Info(f"开始训练")
+    gr.Info(f"Starting training")
     yield from runner.run_command([command], cwd=cwd)
     yield runner.log(f"Runner: {runner}")
 
@@ -781,7 +781,7 @@ def start_training(
     with open(readme_path, "w", encoding="utf-8") as f:
         f.write(md)
 
-    gr.Info(f"训练完成。请检查outputs文件夹中的LoRA文件。", duration=None)
+    gr.Info(f"Training complete. Please check the LoRA file in the outputs folder.", duration=None)
 
 
 def update(
@@ -891,7 +891,7 @@ def init_advanced():
         'split_mode',
         'network_args'
     }
-    # 定义自定义默认值
+    # Define custom default values
     custom_defaults = {
         '--multires_noise_discount': '0.1',
         '--multires_noise_iterations': '8',
@@ -940,13 +940,13 @@ def init_advanced():
     #            elif "int_or_float" in action_type:
     #                component = gr.Number()
                 else:
-                    # 检查是否有自定义默认值
+                    # Check whether there is a custom default value
                     default_value = ""
                     if action['action'] and len(action['action']) > 0:
                         option_string = action['action'][0]
                         if option_string in custom_defaults:
                             default_value = custom_defaults[option_string]
-                            print(f"设置自定义默认值: {option_string} = {default_value}")
+                            print(f"Setting custom default value: {option_string} = {default_value}")
                     
                     component = gr.Textbox(value=default_value)
                 if component != None:
@@ -988,11 +988,11 @@ nav img.rotate { animation: rotate 2s linear infinite; }
 .toast-wrap { bottom: var(--size-4) !important; top: auto !important; border: none !important; backdrop-filter: blur(10px); }
 .toast-title, .toast-text, .toast-icon, .toast-close { color: black !important; font-size: 14px; }
 .toast-body { border: none !important; }
-/* 覆盖深色模式下info类型toast的背景色 */
+/* Override the background color of info-type toasts in dark mode */
 .dark .toast-body.info {
     background-color: #5cb18b !important;
 }
-/* 确保深色模式下toast文字颜色清晰 */
+/* Ensure toast text is clearly visible in dark mode */
 .dark .toast-title.info, .dark .toast-text.info {
     color: white !important;
 }
@@ -1119,7 +1119,7 @@ with gr.Blocks(elem_id="app", theme=theme, css=css, fill_width=True) as demo:
                         )
                     
                     with gr.Group():
-                        gr.Markdown("**选择历史数据集**")
+                        gr.Markdown("**Select a historical dataset**")
                         with gr.Row():
                             datasets_dropdown = gr.Dropdown(
                                 choices=[],
@@ -1127,8 +1127,8 @@ with gr.Blocks(elem_id="app", theme=theme, css=css, fill_width=True) as demo:
                                 scale=3,
                                 show_label=False
                             )
-                            refresh_datasets_btn = gr.Button("刷新列表", scale=1)
-                            load_dataset_btn = gr.Button("使用该数据", scale=1)
+                            refresh_datasets_btn = gr.Button("Refresh list", scale=1)
+                            load_dataset_btn = gr.Button("Use this dataset", scale=1)
                     
                     with gr.Group(visible=False) as captioning_area:
                         do_captioning = gr.Button("Add AI captions with Florence-2")
@@ -1287,7 +1287,7 @@ with gr.Blocks(elem_id="app", theme=theme, css=css, fill_width=True) as demo:
     )
     concept_sentence.change(fn=update_sample, inputs=[concept_sentence], outputs=sample_prompts)
     
-    # 历史数据集事件监听器
+    # Event listeners for historical datasets
     refresh_datasets_btn.click(fn=refresh_datasets_list, outputs=[datasets_dropdown])
     load_dataset_btn.click(
         fn=load_historical_dataset,
