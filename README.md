@@ -1,355 +1,312 @@
 # Spatial-Aware Fusion LoRA (SALF)
 
-> **Spatial-Aware Fusion LoRA: Enhancing Consistency in Multi-Subject Image Generation via Parameter Decoupling and Regional Attention**
+## Project Title
 
-A dual-layer constrained generation framework for FLUX.1-dev that resolves identity confusion and attribute leakage in multi-subject image synthesis.
-
----
-
-## Overview
-
-Large-scale diffusion models (FLUX.1) achieve impressive image quality, but their global cross-attention mechanism causes **attribute leakage** when generating multiple subjects simultaneously — the colour of Subject A bleeds onto Subject B, facial features merge, and textures cross-contaminate.
-
-This work proposes two tightly coupled modules:
-
-| Module | Layer | What it does |
-|--------|-------|-------------|
-| **SALF** – Spatial-Aware LoRA Fusion | Parameter space | Assigns a dedicated low-rank adapter branch to each subject; spatial masks gate which branch is active at each image token |
-| **RCAM** – Regional Cross-Attention Masking | Feature space | Injects a layout-driven bias matrix *M* into every attention score map, forcing text tokens to interact only with their designated image regions |
-
-### Key results (DreamBooth dataset, FLUX.1-dev)
-
-| Method | DINO ↑ | CLIP-I ↑ | CLIP-T ↑ |
-|--------|--------|---------|---------|
-| MIP-Adapter | 0.482 | 0.726 | 0.311 |
-| MS-Diffusion | 0.525 | 0.726 | 0.319 |
-| OmniGen | 0.511 | 0.722 | 0.331 |
-| SSR-Encoder | 0.502 | 0.718 | 0.323 |
-| **Ours (SALF + RCAM)** | **0.546** | **0.731** | 0.325 |
+Spatial-Aware Fusion LoRA: Enhancing Consistency in Multi-Subject Image Generation via Parameter Decoupling and Regional Attention
 
 ---
 
-## Dataset Information
+# Description
 
-This work is evaluated on the **DreamBooth dataset** (Ruiz et al., 2023), a standard multi-subject personalization benchmark.
+This repository contains the source code, configuration files, and supplementary materials associated with the manuscript:
 
-- **Source**: publicly available at [google/dreambooth](https://github.com/google/dreambooth)
-- **Content**: 30 subjects (pets, toys, backpacks, etc.), each with 4–6 reference images
-- **Usage in this project**: reference images are used to train one per-subject LoRA (see [Training](#training-per-subject-lora)); a fixed set of test prompts (`configs/test_prompts.txt`) is used to generate multi-subject compositions for evaluation
-- **Format expected by this code**: a folder per subject containing the reference JPG/PNG images, referenced via `--reference_dir` in `eval/compute_metrics.py`
-- No modified or redistributed copy of the dataset is included in this repository; users should download it directly from the source above and place it under `datasets/dreambooth/` (or point `--reference_dir` to its location).
+**Spatial-Aware Fusion LoRA: Enhancing Consistency in Multi-Subject Image Generation via Parameter Decoupling and Regional Attention**
 
----
+This work proposes a dual-layer constrained framework for multi-subject image generation based on FLUX.1-dev. The framework consists of two complementary components:
 
-## Code Information
+- **Spatial-Aware LoRA Fusion (SALF)**, which dynamically activates subject-specific LoRA adapters according to spatial layouts to reduce identity interference.
+- **Regional Cross-Attention Masking (RCAM)**, which introduces region-aware attention constraints to suppress attribute leakage between different subjects.
 
-| File | Description |
-|------|-------------|
-| `networks/lora_salf.py` | SALF module: spatial-gated, per-subject LoRA fusion (Section 2.2 of the paper) |
-| `library/rcam_attention.py` | RCAM module: regional cross-attention masking (Section 2.3) |
-| `inference/multi_subject_infer.py` | End-to-end multi-subject inference script (CLI) |
-| `eval/compute_metrics.py` | Computes DINO / CLIP-I / CLIP-T metrics used for evaluation and ablation tables |
-| `app.py` | Gradio-based training WebUI (FluxGym-derived) for per-subject LoRA training |
-| `app-launch.sh` | Shell entry point that activates the environment and launches `app.py` |
-| `models.yaml` | Configuration file mapping local paths for FLUX.1-dev, CLIP, T5 and VAE weights |
-| `sd-scripts/` | Training backend (kohya-ss), included as a git submodule |
-
-All code is written in Python 3.10+ (PyTorch) except the WebUI launcher (`app-launch.sh`, bash) and `install.js` (Node.js, used only by the Pinokio one-click installer). All code files and comments are in English.
+The proposed framework improves identity preservation and semantic consistency in complex multi-subject image generation tasks.
 
 ---
 
-## Repository Structure
+# Dataset Information
+
+The experiments reported in the manuscript are conducted using the public DreamBooth dataset.
+
+**Dataset**
+
+DreamBooth Dataset
+
+**Source**
+
+https://github.com/google/dreambooth
+
+**Dataset Description**
+
+The dataset contains multiple object and animal categories commonly used for subject-driven image generation research.
+
+Reference images are resized, center-cropped, and normalized before training.
+
+No modified version of the dataset is distributed with this repository.
+
+Users should obtain the dataset directly from the official source and comply with its original license and terms of use.
+
+---
+
+# Code Information
+
+The repository contains the following major components.
+
+| File / Folder | Description |
+|---------------|-------------|
+| app.py | FluxGym training interface |
+| networks/ | LoRA network implementation |
+| library/ | RCAM implementation |
+| inference/ | Multi-subject image generation |
+| eval/ | Quantitative evaluation |
+| sd-scripts/ | Training backend |
+| models.yaml | Model configuration |
+| requirements.txt | Python dependencies |
+
+All source code is written in Python 3.10.
+
+---
+
+# Repository Structure
 
 ```
 Spatial-Aware-Fusion-LoRA/
-├── networks/
-│   └── lora_salf.py          # SALF: spatial-gated LoRA fusion (Section 2.2)
-├── library/
-│   └── rcam_attention.py     # RCAM: regional cross-attention masking (Section 2.3)
-├── inference/
-│   └── multi_subject_infer.py  # End-to-end inference script
-├── eval/
-│   └── compute_metrics.py    # DINO / CLIP-I / CLIP-T evaluation
-├── sd-scripts/               # kohya-ss training backend (git submodule)
-├── app.py                    # FluxGym-based training WebUI
+│
+├── app.py
+├── models.yaml
 ├── requirements.txt
-├── models.yaml               # Model path configuration
+│
+├── networks/
+├── library/
+├── inference/
+├── eval/
+├── sd-scripts/
+│
 └── README.md
 ```
 
 ---
 
-## Method
+# Requirements
 
-### SALF – Spatial-Aware LoRA Fusion
+Operating System
 
-Standard LoRA applies a single global ΔW to all image tokens simultaneously, causing identity features to interfere across subject boundaries.
+- Ubuntu 22.04 (recommended)
 
-SALF reformulates the linear projection as:
+Programming Language
 
-$$h = W_0 x + \sum_{i=1}^{N} \alpha_i \cdot \bigl( R(M_i) \odot (B_i A_i x) \bigr)$$
+- Python 3.10
 
-where:
-- $W_0$ — frozen pre-trained weight
-- $B_i, A_i$ — subject-specific low-rank matrices ($\Delta W_i = B_i A_i$)
-- $M_i$ — binary spatial mask for subject $i$ in latent space
-- $R(\cdot)$ — bilinear resampling to the current feature-map resolution
-- $\odot$ — element-wise multiplication (broadcast over feature dimension)
-- $\alpha_i = \text{lora\_alpha} / r$ — scaling coefficient
+GPU
 
-The dynamic mask weight function $\Phi(M)$ applies Gaussian boundary smoothing at mask edges to ensure natural transitions, and enforces strict non-zero constraints so each token is governed exclusively by its owning branch.
+- NVIDIA GPU with CUDA support
 
-### RCAM – Regional Cross-Attention Masking
+Major Python Packages
 
-RCAM injects a spatial bias matrix $M \in \mathbb{R}^{L \times S}$ into the attention score computation:
+```
+torch
+torchvision
+diffusers
+transformers
+accelerate
+peft
+numpy
+Pillow
+opencv-python
+scipy
+scikit-image
+matplotlib
+safetensors
+```
 
-$$\text{Attention}(Q, K, V) = \text{Softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}} + M\right) V$$
-
-The bias elements are defined as:
-
-$$M_{i,j} = \begin{cases} 0 & \text{if pixel } i \text{ is in subject-}n\text{'s region and token } j \text{ describes subject }n \\ 0 & \text{if token } j \text{ is a global/background token} \\ -\infty & \text{otherwise} \end{cases}$$
-
-This mathematically blocks cross-regional text–image attention, eliminating semantic attribute leakage at the feature level.
-
-### Synergistic inference 
-
-Both modules operate simultaneously:
-- **SALF** ensures each image region uses the correct identity parameters
-- **RCAM** ensures each image region attends only to its subject's text tokens
-- **Dynamic weight scheduling** linearly relaxes SALF's spatial constraint from $\alpha_\text{early}=1.0$ to $\alpha_\text{late}=0.5$, letting the global self-attention handle illumination fusion in the final denoising steps
-
----
-
-## Installation
+Install dependencies
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Spatial-Aware-Fusion-LoRA.git
-cd Spatial-Aware-Fusion-LoRA
-git submodule update --init --recursive   # initialise sd-scripts
 pip install -r requirements.txt
 ```
 
-### Requirements
+---
 
+# Installation
+
+Clone the repository
+
+```bash
+git clone https://github.com/your_repository.git
+
+cd Spatial-Aware-Fusion-LoRA
 ```
-torch>=2.1.0
-torchvision>=0.16.0
-transformers>=4.40.0
-safetensors>=0.4.0
-diffusers>=0.28.0
-accelerate>=0.28.0
-einops>=0.7.0
-Pillow>=10.0.0
-numpy>=1.24.0
-# for evaluation
-git+https://github.com/openai/CLIP.git
+
+Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+Initialize submodules if necessary
+
+```bash
+git submodule update --init --recursive
 ```
 
 ---
 
-## Training (per-subject LoRA)
+# Training
 
-Train one standard FLUX LoRA per subject using the FluxGym WebUI or directly:
+Each subject is first fine-tuned independently using LoRA.
+
+Example
 
 ```bash
-# Launch the WebUI
 python app.py
-
-# Or train from CLI via sd-scripts
-accelerate launch \
-  --mixed_precision bf16 \
-  sd-scripts/flux_train_network.py \
-  --pretrained_model_name_or_path /path/to/flux1-dev.sft \
-  --clip_l  /path/to/clip_l.safetensors \
-  --t5xxl   /path/to/t5xxl_fp16.safetensors \
-  --ae      /path/to/ae.sft \
-  --network_module networks.lora_flux \
-  --network_dim 16 \
-  --learning_rate 2e-4 \
-  --max_train_epochs 15 \
-  --dataset_config outputs/SUBJECT_NAME/dataset.toml \
-  --output_dir outputs/SUBJECT_NAME \
-  --output_name SUBJECT_NAME \
-  --seed 42 \
-  ...
 ```
 
-Training hyperparameters used in the paper (Section 3.1):
-
-| Hyperparameter | Value |
-|----------------|-------|
-| Learning rate | 2 × 10⁻⁴ |
-| LoRA rank *r* | 16 |
-| Repeats per epoch | 10 |
-| Training epochs | 15 |
-| Batch size | 1 |
-| Seed | 42 |
-| Mixed precision | bf16 |
-| Timestep sampling | sigmoid |
-| Guidance scale | 1.0 |
-
----
-
-## Inference
-
-### Two subjects from mask files
+or
 
 ```bash
-python inference/multi_subject_infer.py \
-  --base_model  /path/to/flux1-dev.sft \
-  --clip_l      /path/to/clip_l.safetensors \
-  --t5xxl       /path/to/t5xxl_fp16.safetensors \
-  --ae          /path/to/ae.sft \
-  --lora_paths  outputs/dog/dog.safetensors outputs/cat/cat.safetensors \
-  --lora_weights 1.0 1.0 \
-  --masks       masks/dog_left.png masks/cat_right.png \
-  --prompt      "a dog and a cat sitting on a sofa" \
-  --subject_token_ranges "2,3" "5,6" \
-  --output      results/dog_cat.png \
-  --resolution  1024 \
-  --seed        42
+accelerate launch sd-scripts/flux_train_network.py
 ```
 
-### Two subjects from bounding boxes (no mask files needed)
+Training parameters used in the manuscript
+
+| Parameter | Value |
+|------------|--------|
+| Learning Rate | 2×10⁻⁴ |
+| LoRA Rank | 16 |
+| Epochs | 15 |
+| Batch Size | 1 |
+| Random Seed | 42 |
+
+---
+
+# Inference
+
+Generate images using multiple LoRA adapters
 
 ```bash
-python inference/multi_subject_infer.py \
-  --base_model  /path/to/flux1-dev.sft \
-  --clip_l      /path/to/clip_l.safetensors \
-  --t5xxl       /path/to/t5xxl_fp16.safetensors \
-  --ae          /path/to/ae.sft \
-  --lora_paths  outputs/subjectA.safetensors outputs/subjectB.safetensors \
-  --bboxes      "0.05,0.1,0.48,0.9" "0.52,0.1,0.95,0.9" \
-  --prompt      "a backpack and a vase on a white rug" \
-  --subject_token_ranges "2,3" "5,6" \
-  --output      results/out.png
+python inference/multi_subject_infer.py
 ```
 
-### Python API
+Users should specify
 
-```python
-import torch
-from PIL import Image
-from networks.lora_salf import SALFNetwork, SALFModule, apply_dynamic_weight_schedule
-from library.rcam_attention import RCAMInjector, prepare_rcam_bias
+- pretrained FLUX model
+- LoRA checkpoints
+- spatial masks (or bounding boxes)
+- prompts
 
-# Assume flux, vae, t5_hidden, clip_pooled are already loaded …
-
-masks = [mask_subjectA, mask_subjectB]  # each (1, H_lat, W_lat)
-
-# Inject SALF
-salf_net = SALFNetwork(flux, num_subjects=2, lora_rank=16)
-salf_net.load_lora_safetensors(0, "subjectA.safetensors", weight=1.0)
-salf_net.load_lora_safetensors(1, "subjectB.safetensors", weight=1.0)
-
-# Inject RCAM
-rcam = RCAMInjector(flux)
-bias = prepare_rcam_bias(
-    spatial_masks        = masks,
-    subject_token_ranges = [(2, 3), (5, 6)],
-    txt_seq_len          = 256,
-    img_seq_len          = 4096,
-    num_heads            = flux.num_heads,
-)
-
-# Denoising step
-SALFModule.set_masks(masks)
-with rcam.rcam_ctx.scope(bias):
-    noise_pred = flux(img=z, txt=t5_hidden, y=clip_pooled, ...)
-SALFModule.clear_masks()
-
-# Cleanup
-rcam.restore()
-```
+The generated images will be saved to the specified output directory.
 
 ---
 
-## Evaluation
+# Evaluation
+
+Quantitative evaluation includes
+
+- DINO Score
+- CLIP-I Score
+- CLIP-T Score
+
+Example
 
 ```bash
-# Batch evaluation (reproduces Table 1)
-python eval/compute_metrics.py \
-  --generated_dir  outputs/ours \
-  --reference_dir  datasets/dreambooth \
-  --prompts_file   configs/test_prompts.txt \
-  --output_csv     results/metrics.csv \
-  --method_name    "SALF+RCAM"
-
-# Single pair (quick debug)
-python eval/compute_metrics.py \
-  --generated  outputs/result.png \
-  --reference  datasets/dog/01.jpg \
-  --prompt     "a dog on the beach"
+python eval/compute_metrics.py
 ```
 
-Output:
+The evaluation reproduces the results reported in the manuscript.
+
+---
+
+# Methodology
+
+Overall workflow
 
 ```
-=============================================
-  Evaluation Results  —  SALF+RCAM
-=============================================
-  DINO  ↑  : 0.5460
-  CLIP-I ↑ : 0.7310
-  CLIP-T ↑ : 0.3250
-=============================================
+Reference Images
+        │
+        ▼
+LoRA Fine-tuning
+        │
+        ▼
+Spatial-Aware LoRA Fusion (SALF)
+        │
+        ▼
+Regional Cross-Attention Masking (RCAM)
+        │
+        ▼
+FLUX.1-dev Image Generation
+        │
+        ▼
+Evaluation
+        │
+        ▼
+DINO / CLIP-I / CLIP-T
 ```
 
 ---
 
-## Ablation Study
+# Reproducibility
 
-Quantitative ablation results (Table 2):
+Random Seed
 
-| Configuration | DINO ↑ | CLIP-I ↑ | CLIP-T ↑ |
-|---------------|--------|---------|---------|
-| w/o SALF (global LoRA) | 0.492 | 0.708 | 0.318 |
-| w/o RCAM | 0.528 | 0.715 | 0.306 |
-| **Full method** | **0.546** | **0.731** | **0.325** |
+42
 
-- Removing SALF causes identity blending (feature weights of different subjects superpose without physical isolation)
-- Removing RCAM causes attribute leakage (text descriptors affect non-target spatial regions)
+Training Environment
 
----
+- Python 3.10
+- PyTorch
+- CUDA
+- NVIDIA RTX 5090 GPU
 
-## Model Paths
+All experiments were conducted using the hyperparameters described in the manuscript.
 
-Edit `models.yaml` to match your local model storage:
-
-```yaml
-flux-dev:
-  file: flux1-dev.sft
-  repo: black-forest-labs/FLUX.1-dev
-clip_l: /path/to/clip_l.safetensors
-t5xxl:  /path/to/t5xxl_fp16.safetensors
-ae:     /path/to/ae.sft
-```
+Following the procedures described in this README should reproduce the reported experimental results.
 
 ---
 
-## Citation
+# Citation
 
-If you find this work useful, please cite:
+If you use this repository, please cite
 
 ```bibtex
-@article{salf2025,
-  title     = {Spatial-Aware Fusion LoRA: Enhancing Consistency in Multi-Subject
-               Image Generation via Parameter Decoupling and Regional Attention},
-  author    = {[Author Names]},
-  year      = {2025},
+@article{Mei2026SALF,
+  title={Spatial-Aware Fusion LoRA: Enhancing Consistency in Multi-Subject Image Generation via Parameter Decoupling and Regional Attention},
+  author={Mei, Shuyan and Jiang, Dan},
+  journal={PeerJ Computer Science},
+  year={2026}
 }
 ```
 
----
-
-## Acknowledgements
-
-This project builds on:
-- [FLUX.1](https://github.com/black-forest-labs/flux) by Black Forest Labs
-- [sd-scripts / FluxGym](https://github.com/cocktailpeanut/fluxgym) by kohya-ss & cocktailpeanut
-- [DINO](https://github.com/facebookresearch/dino) by Facebook Research
-- [CLIP](https://github.com/openai/CLIP) by OpenAI
+(The citation can be updated after publication.)
 
 ---
+
+# License
+
+This repository is provided for academic peer review and research purposes.
+
+The authors retain all rights during the peer-review process.
+
+Users should comply with the original licenses of all third-party datasets and pretrained models used in this work.
+
+---
+
+# Contribution Guidelines
+
+Contributions are welcome after publication.
+
+Please submit issues or pull requests through the project repository.
+
+All code, documentation, and comments should be written in English.
+
+---
+
+# Acknowledgements
+
+This work is built upon several outstanding open-source projects, including
+
+- FLUX.1-dev
+- DreamBooth
+- HuggingFace Diffusers
+- PEFT (LoRA)
+
+The authors sincerely thank the developers of these projects for making their work publicly available.
 
 ## License & Contribution Guidelines
 
